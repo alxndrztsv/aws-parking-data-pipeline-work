@@ -1,0 +1,45 @@
+name: Bootstrap
+
+# One-time setup: creates the S3 bucket that stores the main Terraform state.
+# Run this ONCE before the CD workflow. Uses a local backend, so the state
+# file is uploaded as an artifact — download and put it back into
+# terraform-bootstrap/ if you ever need to update or destroy the bucket.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Terraform init
+        working-directory: terraform-bootstrap
+        run: terraform init -input=false
+
+      - name: Terraform apply
+        working-directory: terraform-bootstrap
+        run: terraform apply -input=false -auto-approve
+
+      - name: Upload bootstrap state
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-tfstate
+          path: terraform-bootstrap/terraform.tfstate

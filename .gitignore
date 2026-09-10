@@ -1,0 +1,23 @@
+# --- Terraform ---
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+# Real variable values are secrets; only the example template is committed
+terraform.tfvars
+!terraform.tfvars.example
+
+# --- Lambda build artifacts (built by CI / local packaging) ---
+lambda_functions/*.zip
+
+# --- Reference data (kept private; uploaded to S3 by Terraform) ---
+# Injected from the PARKS_CSV secret in CI — see README "Hiding parks.csv"
+reference_data/parks.csv
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/

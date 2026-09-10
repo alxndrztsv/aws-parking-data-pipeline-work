@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      # parks.csv is gitignored, but `terraform validate` evaluates the
+      # filemd5() in s3_upload.tf and needs the file to exist. CI only
+      # validates (never deploys), so a header-only stub is enough.
+      - name: Create parks.csv validation stub
+        run: |
+          mkdir -p reference_data
+          printf 'city_code,park_name\n' > reference_data/parks.csv
+
+      - name: Install Ruff
+        run: python -m pip install ruff
+
+      - name: Terraform format check
+        working-directory: terraform
+        run: terraform fmt -check
+
+      - name: Terraform init without backend
+        working-directory: terraform
+        run: terraform init -backend=false
+
+      - name: Terraform validate
+        working-directory: terraform
+        run: terraform validate
+
+      - name: Terraform-bootstrap format check
+        working-directory: terraform-bootstrap
+        run: terraform fmt -check
+
+      - name: Terraform-bootstrap init without backend
+        working-directory: terraform-bootstrap
+        run: terraform init -backend=false
+
+      - name: Terraform-bootstrap validate
+        working-directory: terraform-bootstrap
+        run: terraform validate
+
+      - name: Python lint
+        run: ruff check .

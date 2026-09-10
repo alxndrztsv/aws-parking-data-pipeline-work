@@ -1,0 +1,205 @@
+name: CD
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # requests is not bundled with the Lambda Python runtime;
+      # package it (linux x86_64 wheels) into a layer zip for the ingest Lambda
+      - name: Build requests layer
+        run: |
+          mkdir -p layer_build/python
+          python -m pip install requests \
+            --target layer_build/python \
+            --platform manylinux2014_x86_64 \
+            --python-version 3.11 \
+            --implementation cp \
+            --only-binary=:all: \
+            --quiet
+          cd layer_build && zip -qr ../lambda_functions/requests_layer.zip python
+
+      # parks.csv is gitignored; materialise it from the PARKS_CSV secret so
+      # Terraform can read it (filemd5 at plan time, source upload at apply time)
+      - name: Materialize parks.csv from secret
+        env:
+          PARKS_CSV: ${{ secrets.PARKS_CSV }}
+        run: |
+          if [ -z "$PARKS_CSV" ]; then
+            echo "::error::PARKS_CSV secret is empty or not set"
+            exit 1
+          fi
+          mkdir -p reference_data
+          printf '%s\n' "$PARKS_CSV" > reference_data/parks.csv
+
+      - name: Terraform init
+        working-directory: terraform
+        run: terraform init -input=false -backend-config=backend.hcl
+
+      - name: Terraform plan
+        working-directory: terraform
+        run: |
+          terraform plan -input=false -out=tfplan \
+            -var="aws_region=${{ vars.AWS_REGION }}" \
+            -var="environment=${{ vars.ENVIRONMENT }}" \
+            -var="project_name=${{ vars.PROJECT_NAME }}" \
+            -var="sender_email=${{ secrets.SENDER_EMAIL }}" \
+            -var="recipient_email=${{ secrets.RECIPIENT_EMAIL }}" \
+            -var="failure_notification_email=${{ secrets.FAILURE_NOTIFICATION_EMAIL }}" \
+            -var="api_login=${{ secrets.API_LOGIN }}" \
+            -var="api_password=${{ secrets.API_PASSWORD }}" \
+            -var="api_url=${{ secrets.API_URL }}"
+
+      - name: Upload plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: terraform/tfplan
+
+      # archive_file creates the zips during plan; the apply job runs on a
+      # different runner, so they must be carried over as artifacts
+      - name: Upload lambda prepare_ingestion package
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-prepare-ingestion-zip
+          path: lambda_functions/prepare_ingestion.zip
+
+      - name: Upload lambda ingest_data package
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-ingest-data-zip
+          path: lambda_functions/ingest_data.zip
+
+      - name: Upload lambda check_ingestion package
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-check-ingestion-zip
+          path: lambda_functions/check_ingestion.zip
+
+      - name: Upload lambda generate_manifest package
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-generate-manifest-zip
+          path: lambda_functions/generate_manifest.zip
+
+      - name: Upload lambda email_report package
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-email-report-zip
+          path: lambda_functions/email_report.zip
+
+      - name: Upload requests layer package
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-requests-layer-zip
+          path: lambda_functions/requests_layer.zip
+
+  apply:
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Download plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: terraform
+
+      # download-artifact `path` is a DIRECTORY; the artifact holds the zip file
+      - name: Download lambda prepare_ingestion package
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-prepare-ingestion-zip
+          path: lambda_functions
+
+      - name: Download lambda ingest_data package
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-ingest-data-zip
+          path: lambda_functions
+
+      - name: Download lambda check_ingestion package
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-check-ingestion-zip
+          path: lambda_functions
+
+      - name: Download lambda generate_manifest package
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-generate-manifest-zip
+          path: lambda_functions
+
+      - name: Download lambda email_report package
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-email-report-zip
+          path: lambda_functions
+
+      - name: Download requests layer package
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-requests-layer-zip
+          path: lambda_functions
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # parks.csv is gitignored; the provider re-reads its bytes to upload at
+      # apply time, so it must be present in this job too
+      - name: Materialize parks.csv from secret
+        env:
+          PARKS_CSV: ${{ secrets.PARKS_CSV }}
+        run: |
+          if [ -z "$PARKS_CSV" ]; then
+            echo "::error::PARKS_CSV secret is empty or not set"
+            exit 1
+          fi
+          mkdir -p reference_data
+          printf '%s\n' "$PARKS_CSV" > reference_data/parks.csv
+
+      - name: Terraform init
+        working-directory: terraform
+        run: terraform init -input=false -backend-config=backend.hcl
+
+      - name: Terraform apply
+        working-directory: terraform
+        run: terraform apply -input=false tfplan
