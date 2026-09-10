@@ -22,13 +22,17 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # parks.csv is gitignored, but `terraform validate` evaluates the
-      # filemd5() in s3_upload.tf and needs the file to exist. CI only
-      # validates (never deploys), so a header-only stub is enough.
-      - name: Create parks.csv validation stub
+      # Gitignored files that Terraform reads at validate time:
+      # - reference_data/parks.csv            -> filemd5() in s3_upload.tf
+      # - lambda_functions/requests_layer.zip -> filebase64sha256() in lambda_ingest_data.tf
+      # CI only validates (never deploys), so content-free stubs are enough.
+      # The real layer zip is built by the CD workflow; the real parks.csv
+      # comes from the PARKS_CSV secret there.
+      - name: Create validation stubs for gitignored files
         run: |
-          mkdir -p reference_data
+          mkdir -p reference_data lambda_functions
           printf 'city_code,park_name\n' > reference_data/parks.csv
+          printf 'stub' > lambda_functions/requests_layer.zip
 
       - name: Install Ruff
         run: python -m pip install ruff
