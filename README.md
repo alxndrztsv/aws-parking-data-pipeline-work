@@ -1,3 +1,5 @@
+[![CI Pipeline](https://github.com/alxndrztsv/aws-parking-data-pipeline-work/actions/workflows/ci.yml/badge.svg)](https://github.com/alxndrztsv/aws-parking-data-pipeline-work/actions/workflows/ci.yml) [![CD Pipeline](https://github.com/alxndrztsv/aws-parking-data-pipeline-work/actions/workflows/cd.yml/badge.svg)](https://github.com/alxndrztsv/aws-parking-data-pipeline-work/actions/workflows/cd.yml)
+
 # AWS Parking Data Pipeline
 
 An end-to-end data pipeline for **real** transaction data from on-street and 
