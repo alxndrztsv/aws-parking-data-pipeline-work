@@ -42,7 +42,7 @@ resource "aws_iam_role_policy" "eventbridge_policy" {
 resource "aws_cloudwatch_event_rule" "weekly_pipeline" {
   name                = "${var.project_name}-weekly-pipeline"
   description         = "Triggers the data pipeline weekly at 06:00 UTC"
-  schedule_expression = "cron(0 6 ? * THU *)"
+  schedule_expression = "cron(0 6 ? * MON *)"
 }
 
 # EventBridge target (points to Step Functions machine state)
