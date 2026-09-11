@@ -90,10 +90,12 @@ It runs with **local** state and is applied once:
 ```bash
 cd terraform-bootstrap
 terraform init
-terraform apply
+terraform apply \
+  -var="github_repo=<YOUR_GITHUB_USER>/<YOUR_REPO>" \
+  -var="github_owner_id=<OWNER_ID>" \
+  -var="github_repo_id=<REPO_ID>"
 ```
 
-> The bucket name (`parking-pipeline-tfstate`) is globally unique across all of AWS.
 > If `apply` fails with `BucketAlreadyExists`, change the name in **both**
 > `terraform-bootstrap/main.tf` and `terraform/backend.hcl`, then re-apply.
 > Keep the resulting `terraform-bootstrap/terraform.tfstate` — it is gitignored and
@@ -199,14 +201,12 @@ enforces the same privacy controls.
 </table>
 
 The state machine paces ingestion at one API call per ~60 s. With many parks in
-`parks.csv` and API access to only some of them, a full run can exceed the
-**2-hour** execution timeout — keep the park list scoped to the parks you can
-actually pull for a clean end-to-end run.
+`parks.csv`, a full run can exceed the **2-hour** execution timeout.
 
 ## Storage (S3)
 
 <details>
-  <summary>📂 Bucket layout (medallion architecture)</summary>
+  <summary>📂 Click to view S3 bucket layout (medallion architecture)</summary>
   <br>
   <p align="center">
     <a href="https://raw.githubusercontent.com/alxndrztsv/aws-parking-data-pipeline-work/main/docs/s3-buckets.png" target="_blank">
@@ -229,7 +229,7 @@ actually pull for a clean end-to-end run.
       <img src="docs/silver-schema.png" alt="Glue Silver table schema" width="602"/>
     </a>
     <br>
-    <em>Glue Silver table contains 27 processed columns and 2 partition keys.</em>
+    <em>Glue Silver table contains 27 processed columns and 2 partition key columns.</em>
   </p>
 </details>
 
@@ -240,7 +240,7 @@ The Silver crawler registers the processed data in the Glue Data Catalog
 workgroup; results are written to the `athena` bucket.
 
 <details>
-  <summary>📂 Athena query</summary>
+  <summary>📂 Click to view Athena query</summary>
   <br>
   <p align="center">
     <a href="https://raw.githubusercontent.com/alxndrztsv/aws-parking-data-pipeline-work/main/docs/athena-query.png" target="_blank">

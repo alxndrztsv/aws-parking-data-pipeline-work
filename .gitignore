@@ -17,6 +17,9 @@ lambda_functions/*.zip
 # Injected from the PARKS_CSV secret in CI — see README "Hiding parks.csv"
 reference_data/parks.csv
 
+# Schemes
+*.drawio
+
 # --- Python ---
 __pycache__/
 *.py[cod]

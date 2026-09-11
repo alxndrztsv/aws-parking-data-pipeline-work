@@ -77,3 +77,9 @@ variable "max_receive_count" {
   type        = string
   default     = 4
 }
+
+variable "max_ingestion_loops" {
+  description = "Max ingest/check cycles per run before exiting to the manifest. Each cycle costs >= 60 s (wait) + up to ~60 s (ingest)."
+  type        = number
+  default     = 70
+}

@@ -73,6 +73,7 @@ resource "aws_sfn_state_machine" "pipeline_orchestrator" {
         Type = "Pass"
         Parameters = {
           "run_id.$" : "$$.Execution.Name"
+          "loop_count" : 0
         }
         Next = "PrepareIngestion"
       }
@@ -186,9 +187,25 @@ resource "aws_sfn_state_machine" "pipeline_orchestrator" {
             Variable      = "$.ingestion_status.is_complete"
             BooleanEquals = true
             Next          = "GenerateManifest"
+          },
+          {
+            Variable                 = "$.loop_count"
+            NumericGreaterThanEquals = var.max_ingestion_loops
+            Next                     = "GenerateManifest"
           }
         ]
-        Default = "WaitBeforeIngestion"
+        Default = "IncrementLoop"
+      }
+      # Increment loop
+      IncrementLoop = {
+        Type = "Pass"
+        Parameters = {
+          "run_id.$" : "$.run_id"
+          "ingestion_config.$" : "$.ingestion_config"
+          "ingestion_status.$" : "$.ingestion_status"
+          "loop_count.$" : "States.MathAdd($.loop_count, 1)"
+        }
+        Next = "WaitBeforeIngestion"
       }
       # --- 2 step: Generate manifest ---
       # Create manifest

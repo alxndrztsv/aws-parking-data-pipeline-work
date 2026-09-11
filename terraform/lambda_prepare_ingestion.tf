@@ -29,10 +29,6 @@ resource "aws_iam_role_policy" "lambda_prepare_ingestion_policy" {
       {
         Effect = "Allow"
         Action = [
-          "sqs:ReceiveMessage",
-          "sqs:DeleteMessage",
-          "sqs:GetQueueAttributes",
-          "sqs:ChangeMessageVisibility",
           "sqs:SendMessage"
         ]
         Resource = [aws_sqs_queue.data_ingestion_queue.arn, aws_sqs_queue.data_ingestion_dlq.arn]
@@ -40,22 +36,9 @@ resource "aws_iam_role_policy" "lambda_prepare_ingestion_policy" {
       {
         Effect = "Allow"
         Action = [
-          "dynamodb:PutItem",
-          "dynamodb:UpdateItem",
-          "dynamodb:Scan",
-          "dynamodb:GetItem"
+          "dynamodb:PutItem"
         ]
         Resource = aws_dynamodb_table.ingestion_state.arn
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["s3:PutObject"]
-        Resource = "${aws_s3_bucket.layers["bronze"].arn}/*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["s3:PutObject"]
-        Resource = "${aws_s3_bucket.layers["gold"].arn}/manifests/*"
       },
       {
         Effect   = "Allow"

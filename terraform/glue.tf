@@ -82,7 +82,6 @@ resource "aws_glue_job" "bronze_to_silver" {
     "--source_bucket"                    = aws_s3_bucket.layers["bronze"].id
     "--target_bucket"                    = aws_s3_bucket.layers["silver"].id
     "--TempDir"                          = "s3://${aws_s3_bucket.layers["scripts"].id}/temp/"
-    "--run_id"                           = "run_id"
     "--job-bookmark-option"              = "job-bookmark-disable" # just for static synthetic data
     "--enable-continuous-cloudwatch-log" = "true"
     "--enable-metrics"                   = "true"
