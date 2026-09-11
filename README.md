@@ -15,7 +15,7 @@ that paces itself and tracks per-park progress in DynamoDB.
 
 <p align="center">
   <a href="https://raw.githubusercontent.com/alxndrztsv/aws-parking-data-pipeline-work/main/docs/architecture-diagram.png" target="_blank">
-    <img src="docs/architecture-diagram.png" alt="Architecture diagram" width="100" />
+    <img src="docs/architecture-diagram.png" alt="Architecture diagram" width="1442" />
   </a>
   <br>
   <em>End-to-end data pipeline architecture.</em>
